@@ -70,14 +70,14 @@ namespace DBConection
         }
         public static bool RequestPermission()
         {
-            bool permition = false;
+            bool permission = false;
             Console.WriteLine("Delete this person information? yes OR no?");
             string input = Console.ReadLine();
             if (input == "yes")
             {
                 return true;
             }
-            return permition;
+            return permission;
         }
         public static string[] RequestPersonInfo()
         {
