@@ -5,8 +5,9 @@ namespace DBConection
 {
     class Program
     {
-        public static void ShowPersonsList(string source, string command)
+        public static void ShowPersonsList(string source, string command, string message)
         {
+            Console.WriteLine(message);
             using (SqlConnection connection = new())
             {
                 connection.ConnectionString = source;
@@ -22,13 +23,66 @@ namespace DBConection
             }
             Console.WriteLine();
         }
+
         public static void CreatePerson(string source)
         {
             string[] personInfo = RequestPersonInfo();
             CheckPersonException(personInfo);
             string command = "INSERT INTO dbo.BigBangTheory " +
                               "(customer_id, first_name, second_name)" +
-                             $"VALUES ('{Convert.ToInt32(personInfo[0])}', '{personInfo[1]}', '{personInfo[2]}')";
+                             $"VALUES ('{Convert.ToInt32(personInfo[0])}'," +
+                             $" '{personInfo[1]}', '{personInfo[2]}')";
+            UseConnection(source, command);
+            string command1 = "SELECT customer_id, first_name, second_name" +
+                            $" FROM dbo.BigBangTheory WHERE customer_id={personInfo[0]}";
+            ShowPersonsList(source, command1, "Inserted row:");
+        }
+
+        //  Doesn't work properly
+        public static void UpdatePerson(string source)
+        {
+            Console.WriteLine("Enter person ID for UPDATE:");
+            string personID = Console.ReadLine();
+            string findCommand = "SELECT customer_id, first_name, second_name " +
+                                 $"FROM dbo.BigBangTheory WHERE customer_id={Convert.ToInt32(personID)}";
+            ShowPersonsList(source, findCommand, "Selected person information:");
+            string[] person = RequestUpdateInfo(personID);
+            CheckPersonException(person);
+            string updateCommand = "UPDATE [dbo.BigBangTheory] Customers " +
+                                   $"SET first_name={person[1]},second_name={person[2]}" +
+                                   $"WHERE customer_id={Convert.ToInt32(person[0])}";
+            //UseConnection(source, updateCommand);
+            using (SqlConnection connection = new())
+            {
+                connection.ConnectionString = source;
+                SqlCommand sqlCommand = new(updateCommand, connection);
+                connection.Open();
+                Console.WriteLine("\nAffected rows: " + sqlCommand.ExecuteNonQuery());
+            }
+
+        }
+
+        public static void DeletePerson(string source)
+        {
+            Console.WriteLine("Enter person ID for delete:");
+            int personID = Convert.ToInt32(Console.ReadLine());
+            string findCommand = "SELECT customer_id, first_name, second_name " +
+                                 $"FROM dbo.BigBangTheory WHERE customer_id={personID}";
+            ShowPersonsList(source, findCommand, "Selected person information:");
+            string deleteCommand = "DELETE FROM dbo.BigBangTheory " +
+                                   $"WHERE customer_id={personID}";
+            bool permission = RequestPermission("Delete");
+            if (permission)
+            {
+                UseConnection(source, deleteCommand);
+            }
+            else
+            {
+                Console.WriteLine("Delete operation was canceled...");
+            }
+        }
+        public static void UseConnection(string source, string command)
+        {
             using (SqlConnection connection = new())
             {
                 connection.ConnectionString = source;
@@ -36,48 +90,28 @@ namespace DBConection
                 connection.Open();
                 Console.WriteLine("\nAffected rows: " + sqlCommand.ExecuteNonQuery());
             }
-            string command1 = "SELECT customer_id, first_name, second_name" +
-                            $" FROM dbo.BigBangTheory WHERE customer_id={personInfo[0]}";
-            Console.WriteLine("Inserted row:");
-            ShowPersonsList(source, command1);
         }
-        public static void DeletePerson(string source)
-        {
-            Console.WriteLine("Enter person ID for delete:");
-            int personId = Convert.ToInt32(Console.ReadLine());
-            string findCommand = "SELECT customer_id, first_name, second_name " +
-                                 $"FROM dbo.BigBangTheory WHERE customer_id={ personId}";
-            Console.WriteLine("Selected person information: ");
-            ShowPersonsList(source, findCommand);
-            string deleteCommand = "DELETE FROM dbo.BigBangTheory " +
-                                   $"WHERE customer_id={ personId}";
-            bool permission = RequestPermission();
-            if (permission)
-            {
-                using (SqlConnection connection = new())
-                {
 
-                    connection.ConnectionString = source;
-                    SqlCommand sqlCommand = new(deleteCommand, connection);
-                    connection.Open();
-                    Console.WriteLine("\nAffected rows: " + sqlCommand.ExecuteNonQuery());
-                }
-            }
-            else
-            {
-                Console.WriteLine("Delete operation was canceled...");
-            }
-        }
-        public static bool RequestPermission()
+        public static bool RequestPermission(string operation)
         {
             bool permission = false;
-            Console.WriteLine("Delete this person information? yes OR no?");
+            Console.WriteLine($"{operation} this person information? yes OR no?");
             string input = Console.ReadLine();
             if (input == "yes")
             {
                 return true;
             }
             return permission;
+        }
+        public static string[] RequestUpdateInfo(string personID)
+        {
+            string[] person = new string[3];
+            person[0] = personID;
+            Console.WriteLine("Enter new first name: ");
+            person[1] = Console.ReadLine();
+            Console.WriteLine("Enter new second name: ");
+            person[2] = Console.ReadLine();
+            return person;
         }
         public static string[] RequestPersonInfo()
         {
@@ -90,6 +124,7 @@ namespace DBConection
             person[2] = Console.ReadLine();
             return person;
         }
+
         public static void CheckPersonException(string[] person)
         {
             foreach (var item in person)
@@ -114,14 +149,14 @@ namespace DBConection
                 }
             }
         }
+
         static void Main()
         {
             string sourceDB = @"server=(LocalDB)\MSSQLLocalDB;
                                 integrated security=SSPI;database=Customers;";
             string command = "SELECT customer_id, first_name, second_name " +
                 "             FROM dbo.BigBangTheory ORDER BY customer_id";
-            Console.WriteLine("Persons list: ");
-            ShowPersonsList(sourceDB, command);
+            ShowPersonsList(sourceDB, command, "Persons list: ");
             try
             {
                 CreatePerson(sourceDB);
@@ -130,9 +165,16 @@ namespace DBConection
             {
                 Console.WriteLine(e.Message);
             }
+            try
+            {
+                UpdatePerson(sourceDB);
+            }
+            catch (FormatException e)
+            {
+                Console.WriteLine(e.Message);
+            }
             DeletePerson(sourceDB);
-            Console.WriteLine("\nPersons list: ");
-            ShowPersonsList(sourceDB, command);
+            ShowPersonsList(sourceDB, command, "\nPersons list: ");
         }
     }
 }
